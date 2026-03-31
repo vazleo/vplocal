@@ -1,0 +1,23 @@
+case = Sum two numbers
+input = 5 3
+output = 8
+
+case = Sum negatives
+input = -2 -3
+output = -5
+
+case = Sum zero
+input = 0 0
+output = 0
+
+case = Float result
+input = 1 2
+output = 3.0
+
+case = Exact match
+input = hello
+output = "Hello, World!"
+
+case = Regex match
+input = 42
+output = /^\d+$/

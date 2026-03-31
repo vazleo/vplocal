@@ -1,0 +1,29 @@
+# Claude Code project files
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Compiled C/C++ binaries (from local testing)
+vplocal_prog
+tests/runner/fixtures/sample_programs/vplocal_prog
+tests/runner/fixtures/sample_programs/sample.cases
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Downloaded ZIP packages
+vplocal_*.zip
+
+# TODO files
+TODO.md
