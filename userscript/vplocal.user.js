@@ -448,6 +448,7 @@
     // Inject button into VPL IDE toolbar (waits for dynamic render)
     function injectButton() {
       const SELECTORS = [
+        "#vpl_ide_mexecution",
         ".vpl_ide_toolbar", "#vpl_ide_toolbar",
         '[id*="vpl"][class*="toolbar"]', ".vpl-ide-actions",
       ];
@@ -460,7 +461,7 @@
           if (toolbar) { insertNear(toolbar, true); return true; }
         }
         // fallback: find any VPL action button
-        const vplEl = document.querySelector('[id^="vpl_evaluate"],[id^="vpl_run"],[id="vpl_run"]');
+        const vplEl = document.querySelector('[id="vpl_ide_evaluate"],[id="vpl_ide_run"],[id^="vpl_evaluate"],[id^="vpl_run"]');
         if (vplEl) { insertNear(vplEl.parentNode || vplEl, false); return true; }
         return false;
       }
