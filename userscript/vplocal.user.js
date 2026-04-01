@@ -42,15 +42,6 @@
   const _capturedFrames = [];
   const _capturedStreams = {};
 
-  function _isJailServer(url) {
-    try {
-      const u = new URL(url);
-      return u.hostname !== window.location.hostname;
-    } catch {
-      return false;
-    }
-  }
-
   function _recordFrame(url, data) {
     _capturedFrames.push({ url, data, ts: Date.now() });
     if (!_capturedStreams[url]) _capturedStreams[url] = [];
@@ -59,14 +50,12 @@
 
   function VPLocalWebSocket(url, protocols) {
     const ws = protocols !== undefined ? new OrigWS(url, protocols) : new OrigWS(url);
-    if (_isJailServer(url)) {
-      ws.addEventListener("message", (e) => _recordFrame(url, e.data));
-      ws.addEventListener("close", () => {
-        window.dispatchEvent(new CustomEvent("vplocal:stream-complete", {
-          detail: { url, frames: _capturedStreams[url] || [] },
-        }));
-      });
-    }
+    ws.addEventListener("message", (e) => _recordFrame(url, e.data));
+    ws.addEventListener("close", () => {
+      window.dispatchEvent(new CustomEvent("vplocal:stream-complete", {
+        detail: { url, frames: _capturedStreams[url] || [] },
+      }));
+    });
     return ws;
   }
   VPLocalWebSocket.prototype = OrigWS.prototype;
@@ -186,7 +175,10 @@
       let best = null, bestCount = 0;
       for (const url of Object.keys(streams)) {
         const raw = streams[url].map((f) => (typeof f === "string" ? f : "")).join("");
-        if (!raw.includes("Comment:=>>") && !raw.includes("Grade:=>>")) continue;
+        const looksLikeEval = raw.includes("Comment:=>>") || raw.includes("Grade:=>>")
+                           || /Test\s+\d+\s*:/i.test(raw) || /Case\s*:/i.test(raw);
+        if (!looksLikeEval) continue;
+        console.log("[VPLocal] Strategy B: captured stream from", url, "length", raw.length);
         const result = parseEvaluationStream(raw);
         if (result.cases.length > bestCount) { bestCount = result.cases.length; best = result; }
       }
