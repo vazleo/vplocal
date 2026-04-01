@@ -139,18 +139,21 @@
       }
 
       for (const line of commentLines) {
-        const caseMatch = line.match(/^-*\s*Case\s*:\s*(.*)$/i) || line.match(/^Case\s+(\d+)/i);
+        const caseMatch = line.match(/^-*\s*Case\s*:\s*(.*)$/i)
+                       || line.match(/^Case\s+(\d+)/i)
+                       || line.match(/^Test\s+(\d+)\s*:\s*(.*)$/i);
         if (caseMatch) {
           pushCurrent();
-          current = { description: (caseMatch[1] || "").trim(), input: "", expected: "", obtained: "", source: "reconstructed" };
+          const desc = (caseMatch[2] || caseMatch[1] || "").trim();
+          current = { description: desc, input: "", expected: "", obtained: "", source: "reconstructed" };
           section = null;
           continue;
         }
         if (!current) continue;
-        if (/^Input\s*:?\s*$/i.test(line))            { section = "input";    continue; }
-        if (/^Expected\s+output\s*:?\s*$/i.test(line)) { section = "expected"; continue; }
-        if (/^Obtained\s+output\s*:?\s*$/i.test(line)) { section = "obtained"; continue; }
-        if (/^(Not\s+match|Match|OK|Fail)/i.test(line)) { section = null; continue; }
+        if (/^-*\s*Input\s*-*\s*$/i.test(line))                          { section = "input";    continue; }
+        if (/^-*\s*Expected\s+output[^-]*-*\s*$/i.test(line))             { section = "expected"; continue; }
+        if (/^-*\s*(Obtained|Program)\s+output[^-]*-*\s*$/i.test(line))   { section = "obtained"; continue; }
+        if (/^(Not\s+match|Match|OK|Fail|Incorrect|Correct)/i.test(line)) { section = null; continue; }
 
         if (section === "input")    current.input    += (current.input    ? "\n" : "") + line;
         if (section === "expected") current.expected += (current.expected ? "\n" : "") + line;
