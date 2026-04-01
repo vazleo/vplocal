@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VPLocal
 // @namespace    https://github.com/vazleo/vplocal
-// @version      0.2.0
+// @version      0.2.1
 // @description  Download VPL test cases and run them locally — stop overloading the jail server.
 // @author       vazleo
 // @match        *://*/mod/vpl/*
@@ -49,8 +49,9 @@
   }
 
   function VPLocalWebSocket(url, protocols) {
+    console.log("[VPLocal] WebSocket intercepted:", url);
     const ws = protocols !== undefined ? new OrigWS(url, protocols) : new OrigWS(url);
-    ws.addEventListener("message", (e) => _recordFrame(url, e.data));
+    ws.addEventListener("message", (e) => { console.log("[VPLocal] frame from", url, e.data?.slice?.(0,80)); _recordFrame(url, e.data); });
     ws.addEventListener("close", () => {
       window.dispatchEvent(new CustomEvent("vplocal:stream-complete", {
         detail: { url, frames: _capturedStreams[url] || [] },
