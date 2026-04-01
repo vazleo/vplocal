@@ -124,6 +124,10 @@
           if (!isNaN(g)) grade = g;
         }
       }
+      // If no Comment:=>> prefix found, the text is already processed — use lines directly
+      if (commentLines.length === 0) {
+        for (const line of lines) commentLines.push(line);
+      }
 
       const cases = [];
       let current = null;
@@ -416,7 +420,7 @@
         if (!casesText) {
           setStatus("Trying saved result…", "info");
           const saved = await fetchLastResult();
-          if (saved && saved.includes("Comment:=>>")) {
+          if (saved) {
             const parsed = parseEvaluationStream(saved);
             const text = toCasesFileText(parsed);
             if (text.trim()) {
