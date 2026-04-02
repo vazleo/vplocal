@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VPLocal
 // @namespace    https://github.com/vazleo/vplocal
-// @version      0.2.1
+// @version      0.2.2
 // @description  Download VPL test cases and run them locally — stop overloading the jail server.
 // @author       vazleo
 // @match        *://*/mod/vpl/*
@@ -38,7 +38,7 @@
   // INTERCEPTOR — must run at document-start before page scripts
   // ============================================================
 
-  const OrigWS = window.WebSocket;
+  const OrigWS = unsafeWindow.WebSocket;
   const _capturedFrames = [];
   const _capturedStreams = {};
 
@@ -65,9 +65,9 @@
   VPLocalWebSocket.CLOSING = OrigWS.CLOSING;
   VPLocalWebSocket.CLOSED = OrigWS.CLOSED;
   Object.defineProperty(VPLocalWebSocket, "name", { value: "WebSocket" });
-  window.WebSocket = VPLocalWebSocket;
+  unsafeWindow.WebSocket = VPLocalWebSocket;
 
-  window.__vplocalCapture = {
+  unsafeWindow.__vplocalCapture = {
     getFrames: () => _capturedFrames.slice(),
     getStreams: () => Object.assign({}, _capturedStreams),
     clear: () => {
@@ -170,7 +170,7 @@
     }
 
     function extractFromCapture() {
-      const capture = window.__vplocalCapture;
+      const capture = unsafeWindow.__vplocalCapture;
       if (!capture) return null;
       const streams = capture.getStreams();
       let best = null, bestCount = 0;
