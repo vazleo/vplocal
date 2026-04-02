@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VPLocal
 // @namespace    https://github.com/vazleo/vplocal
-// @version      0.2.2
+// @version      0.2.3
 // @description  Download VPL test cases and run them locally — stop overloading the jail server.
 // @author       vazleo
 // @match        *://*/mod/vpl/*
@@ -51,7 +51,7 @@
   function VPLocalWebSocket(url, protocols) {
     console.log("[VPLocal] WebSocket intercepted:", url);
     const ws = protocols !== undefined ? new OrigWS(url, protocols) : new OrigWS(url);
-    ws.addEventListener("message", (e) => { console.log("[VPLocal] frame from", url, e.data?.slice?.(0,80)); _recordFrame(url, e.data); });
+    ws.addEventListener("message", (e) => { console.log("[VPLocal] frame from", url, e.data?.slice?.(0,200)); _recordFrame(url, e.data); });
     ws.addEventListener("close", () => {
       window.dispatchEvent(new CustomEvent("vplocal:stream-complete", {
         detail: { url, frames: _capturedStreams[url] || [] },
@@ -178,7 +178,7 @@
         const raw = streams[url].map((f) => (typeof f === "string" ? f : "")).join("");
         const looksLikeEval = raw.includes("Comment:=>>") || raw.includes("Grade:=>>")
                            || /Test\s+\d+\s*:/i.test(raw) || /Case\s*:/i.test(raw);
-        if (!looksLikeEval) continue;
+        if (!looksLikeEval) { console.log("[VPLocal] Strategy B: skipping stream from", url, "— no eval patterns. First 200:", raw.slice(0,200)); continue; }
         console.log("[VPLocal] Strategy B: captured stream from", url, "length", raw.length);
         const result = parseEvaluationStream(raw);
         if (result.cases.length > bestCount) { bestCount = result.cases.length; best = result; }
@@ -259,6 +259,7 @@
         const url = `${base}/webservice/rest/server.php?wsfunction=mod_vpl_get_result&wstoken=${encodeURIComponent(sesskey)}&moodlewsrestformat=json&id=${encodeURIComponent(cmid)}`;
         const resp = await gmFetch(url);
         const data = JSON.parse(resp.responseText);
+        console.log("[VPLocal] Strategy C: mod_vpl_get_result raw:", JSON.stringify(data).slice(0,400));
         return data.comments || null;
       } catch { return null; }
     }
