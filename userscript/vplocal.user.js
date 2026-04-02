@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VPLocal
 // @namespace    https://github.com/vazleo/vplocal
-// @version      0.2.6
+// @version      0.2.7
 // @description  Download VPL test cases and run them locally — stop overloading the jail server.
 // @author       vazleo
 // @match        *://*/mod/vpl/*
@@ -149,7 +149,10 @@
 
     function parseEvaluationStream(rawText) {
       const text = stripAnsi(rawText);
-      const lines = text.split(/\r?\n/);
+      // If the text uses "-Test N:" format (VPL JSON evaluation field), skip the
+      // summary block at the top — only the detailed sections after the first "-Test N:" matter.
+      const dashTestIdx = text.search(/^-+\s*Test\s+\d+\s*:/im);
+      const lines = (dashTestIdx > 0 ? text.slice(dashTestIdx) : text).split(/\r?\n/);
       const COMMENT_PREFIX = "Comment:=>>";
       const GRADE_PREFIX = "Grade:=>>";
 
@@ -185,10 +188,10 @@
       for (const line of commentLines) {
         const caseMatch = line.match(/^-*\s*Case\s*:\s*(.*)$/i)
                        || line.match(/^Case\s+(\d+)/i)
-                       || line.match(/^Test\s+(\d+)\s*:\s*(.*)$/i);
+                       || line.match(/^-*\s*Test\s+(\d+)\s*:\s*(.*)$/i);
         if (caseMatch) {
           pushCurrent();
-          const desc = (caseMatch[2] || caseMatch[1] || "").trim();
+          const desc = (caseMatch[2] || caseMatch[1] || "").trim().replace(/\s*\([^)]*\)\s*$/, "");
           current = { description: desc, input: "", expected: "", obtained: "", source: "reconstructed" };
           section = null;
           continue;
