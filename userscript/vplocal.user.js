@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VPLocal
 // @namespace    https://github.com/vazleo/vplocal
-// @version      0.2.3
+// @version      0.2.4
 // @description  Download VPL test cases and run them locally — stop overloading the jail server.
 // @author       vazleo
 // @match        *://*/mod/vpl/*
@@ -225,6 +225,26 @@
       });
     }
 
+    function moodleAjax(base, sesskey, methodname, args) {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "POST",
+          url: `${base}/lib/ajax/service.php?sesskey=${encodeURIComponent(sesskey)}&info=${methodname}`,
+          headers: { "Content-Type": "application/json" },
+          data: JSON.stringify([{ index: 0, methodname, args }]),
+          timeout: 15000,
+          onload: (r) => {
+            const arr = JSON.parse(r.responseText);
+            const item = arr[0];
+            if (item.error) reject(new Error(item.exception?.message || "Moodle AJAX error"));
+            else resolve(item.data);
+          },
+          onerror: () => reject(new Error("Network error")),
+          ontimeout: () => reject(new Error("Timeout")),
+        });
+      });
+    }
+
     async function fetchVplData() {
       const base = getMoodleBase();
       const sesskey = getSesskey();
@@ -232,9 +252,7 @@
       if (!sesskey) throw new Error("Could not find Moodle sesskey.");
       if (!cmid) throw new Error("Could not find VPL activity ID.");
 
-      const url = `${base}/webservice/rest/server.php?wsfunction=mod_vpl_open&wstoken=${encodeURIComponent(sesskey)}&moodlewsrestformat=json&id=${encodeURIComponent(cmid)}`;
-      const resp = await gmFetch(url);
-      const data = JSON.parse(resp.responseText);
+      const data = await moodleAjax(base, sesskey, "mod_vpl_open", { id: Number(cmid) });
       if (data.exception) throw new Error(data.message || data.exception);
 
       const files = (data.files || []).map((f) => ({
@@ -256,12 +274,10 @@
       const cmid = getCmid();
       if (!sesskey || !cmid) return null;
       try {
-        const url = `${base}/webservice/rest/server.php?wsfunction=mod_vpl_get_result&wstoken=${encodeURIComponent(sesskey)}&moodlewsrestformat=json&id=${encodeURIComponent(cmid)}`;
-        const resp = await gmFetch(url);
-        const data = JSON.parse(resp.responseText);
+        const data = await moodleAjax(base, sesskey, "mod_vpl_get_result", { id: Number(cmid) });
         console.log("[VPLocal] Strategy C: mod_vpl_get_result raw:", JSON.stringify(data).slice(0,400));
         return data.comments || null;
-      } catch { return null; }
+      } catch (e) { console.log("[VPLocal] Strategy C failed:", e.message); return null; }
     }
 
     // ----------------------------------------------------------
