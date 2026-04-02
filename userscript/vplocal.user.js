@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VPLocal
 // @namespace    https://github.com/vazleo/vplocal
-// @version      0.2.7
+// @version      0.2.8
 // @description  Download VPL test cases and run them locally — stop overloading the jail server.
 // @author       vazleo
 // @match        *://*/mod/vpl/*
@@ -243,6 +243,7 @@
       for (const { url, text } of capture.getHTTP()) {
         console.log("[VPLocal] Strategy B: HTTP match from", url, "length", text.length);
         const result = parseEvaluationStream(text);
+        console.log("[VPLocal] Strategy B: parsed", result.cases.length, "cases. First 300 chars fed to parser:", text.slice(0,300));
         if (result.cases.length > bestCount) { bestCount = result.cases.length; best = result; }
       }
 
