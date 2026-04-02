@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VPLocal
 // @namespace    https://github.com/vazleo/vplocal
-// @version      0.2.5
+// @version      0.2.6
 // @description  Download VPL test cases and run them locally — stop overloading the jail server.
 // @author       vazleo
 // @match        *://*/mod/vpl/*
@@ -75,11 +75,20 @@
 
   function _maybeRecordHTTP(url, text) {
     if (!text) return;
-    const looks = text.includes("Comment:=>>") || text.includes("Grade:=>>")
-               || /Test\s+\d+\s*:/i.test(text) || /Case\s*:/i.test(text);
+    let content = text;
+    try {
+      const json = JSON.parse(text);
+      if (json.success && json.response) {
+        const r = json.response;
+        const ce = r.compilationexecution || {};
+        content = [ce.evaluation || r.evaluation || "", ce.compilation || r.compilation || "", r.comments || ""].join("\n");
+      }
+    } catch {}
+    const looks = content.includes("Comment:=>>") || content.includes("Grade:=>>")
+               || /Test\s+\d+\s*:/i.test(content) || /Case\s*:/i.test(content);
     if (!looks) return;
-    console.log("[VPLocal] HTTP response captured:", url, "length", text.length, "preview:", text.slice(0, 200));
-    _capturedHTTP.push({ url, text });
+    console.log("[VPLocal] HTTP response captured:", url, "length", content.length, "preview:", content.slice(0, 200));
+    _capturedHTTP.push({ url, text: content });
   }
 
   // Intercept fetch
