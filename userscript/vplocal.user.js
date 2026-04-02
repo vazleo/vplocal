@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VPLocal
 // @namespace    https://github.com/vazleo/vplocal
-// @version      0.2.4
+// @version      0.2.5
 // @description  Download VPL test cases and run them locally — stop overloading the jail server.
 // @author       vazleo
 // @match        *://*/mod/vpl/*
@@ -67,12 +67,53 @@
   Object.defineProperty(VPLocalWebSocket, "name", { value: "WebSocket" });
   unsafeWindow.WebSocket = VPLocalWebSocket;
 
+  // ============================================================
+  // HTTP INTERCEPT — capture XHR/fetch responses (jail /retrieve)
+  // ============================================================
+
+  const _capturedHTTP = [];
+
+  function _maybeRecordHTTP(url, text) {
+    if (!text) return;
+    const looks = text.includes("Comment:=>>") || text.includes("Grade:=>>")
+               || /Test\s+\d+\s*:/i.test(text) || /Case\s*:/i.test(text);
+    if (!looks) return;
+    console.log("[VPLocal] HTTP response captured:", url, "length", text.length, "preview:", text.slice(0, 200));
+    _capturedHTTP.push({ url, text });
+  }
+
+  // Intercept fetch
+  const OrigFetch = unsafeWindow.fetch;
+  unsafeWindow.fetch = function (input, init) {
+    return OrigFetch.call(this, input, init).then((resp) => {
+      const url = typeof input === "string" ? input : (input.url || String(input));
+      resp.clone().text().then((t) => _maybeRecordHTTP(url, t)).catch(() => {});
+      return resp;
+    });
+  };
+
+  // Intercept XMLHttpRequest
+  const OrigOpen = unsafeWindow.XMLHttpRequest.prototype.open;
+  const OrigSend = unsafeWindow.XMLHttpRequest.prototype.send;
+  unsafeWindow.XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+    this.__vplocal_url = url;
+    return OrigOpen.call(this, method, url, ...rest);
+  };
+  unsafeWindow.XMLHttpRequest.prototype.send = function (...args) {
+    this.addEventListener("load", () => {
+      _maybeRecordHTTP(this.__vplocal_url || "", this.responseText);
+    });
+    return OrigSend.apply(this, args);
+  };
+
   unsafeWindow.__vplocalCapture = {
     getFrames: () => _capturedFrames.slice(),
     getStreams: () => Object.assign({}, _capturedStreams),
+    getHTTP: () => _capturedHTTP.slice(),
     clear: () => {
       _capturedFrames.length = 0;
       Object.keys(_capturedStreams).forEach((k) => delete _capturedStreams[k]);
+      _capturedHTTP.length = 0;
     },
   };
 
@@ -172,17 +213,27 @@
     function extractFromCapture() {
       const capture = unsafeWindow.__vplocalCapture;
       if (!capture) return null;
-      const streams = capture.getStreams();
       let best = null, bestCount = 0;
+
+      // WebSocket streams
+      const streams = capture.getStreams();
       for (const url of Object.keys(streams)) {
         const raw = streams[url].map((f) => (typeof f === "string" ? f : "")).join("");
         const looksLikeEval = raw.includes("Comment:=>>") || raw.includes("Grade:=>>")
                            || /Test\s+\d+\s*:/i.test(raw) || /Case\s*:/i.test(raw);
-        if (!looksLikeEval) { console.log("[VPLocal] Strategy B: skipping stream from", url, "— no eval patterns. First 200:", raw.slice(0,200)); continue; }
-        console.log("[VPLocal] Strategy B: captured stream from", url, "length", raw.length);
+        if (!looksLikeEval) { console.log("[VPLocal] Strategy B: skipping WS stream from", url, "— no eval patterns. First 200:", raw.slice(0,200)); continue; }
+        console.log("[VPLocal] Strategy B: WS stream match from", url, "length", raw.length);
         const result = parseEvaluationStream(raw);
         if (result.cases.length > bestCount) { bestCount = result.cases.length; best = result; }
       }
+
+      // HTTP responses (jail /retrieve)
+      for (const { url, text } of capture.getHTTP()) {
+        console.log("[VPLocal] Strategy B: HTTP match from", url, "length", text.length);
+        const result = parseEvaluationStream(text);
+        if (result.cases.length > bestCount) { bestCount = result.cases.length; best = result; }
+      }
+
       if (!best || bestCount === 0) return null;
       return { casesText: toCasesFileText(best), caseCount: bestCount, grade: best.grade };
     }
